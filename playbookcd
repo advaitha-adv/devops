@@ -1,0 +1,47 @@
+---
+- name: setup for ci/cd
+  hosts: servers
+  tasks:
+   - name: install required softwaes
+     apt:
+      name: "{{item.a}}"
+      state: present
+      update_cache: no
+     with_items:
+      - {a: openjdk-8-jdk}
+      - {a: maven}
+      - {a: tomcat8}
+      - {a: tomcat8-admin}
+- name: download the code and build code
+  hosts: devserver
+  tasks:
+   - name: continuous download
+     git:
+      repo: https://github.com/intelliqittrainings/maven.git
+      dest: /home/ubuntu/git
+   - name: continuous build
+     shell: cd /home/ubuntu/git; mvn package
+   - name: fetch artifact from devserver to controller
+     fetch:
+      src: /home/ubuntu/git/webapp/target/webapp.war
+      dest: /tmp
+- name: deploy the artifact into qa server and run the test script
+  hosts: qaserver
+  tasks:
+   - name: continuous deployment
+     copy:
+      src: /tmp/172.31.33.16/home/ubuntu/git/webapp/target/webapp.war
+      dest: /var/lib/tomcat8/webapps/testapp.war
+   - name: down the test script
+     git:
+      repo: https://github.com/selenium-saikrishna/FunctionalTesting.git
+      dest: /home/ubuntu/test.git
+   - name: continuous testing
+     shell: java -jar /home/ubuntu/test.git/testing.jar
+- name: deploy the artifact into prod server
+  hosts: prodserver
+  tasks:
+   - name: continuousdelivery
+     copy:
+      src: /tmp/172.31.33.16/home/ubuntu/git/webapp/target/webapp.war
+      dest: /var/lib/tomcat8/webapps/prodapp.war
